@@ -2,8 +2,8 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-// Console-strip styling: colored plastic caps over a dark skirt, white silkscreen ticks
-class StripLookAndFeel : public juce::LookAndFeel_V4
+// Hardware-style knob: brass ring, knurled graphite cap, cream pointer
+class HardwareLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos,
@@ -14,13 +14,11 @@ class Knob : public juce::Component
 {
 public:
     Knob(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramId, const juce::String& title,
-         juce::StringArray tickLabels, juce::Colour cap, bool large,
-         std::function<juce::String(double)> formatter, StripLookAndFeel& laf);
+         juce::StringArray tickLabels, std::function<juce::String(double)> formatter, HardwareLookAndFeel& laf);
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
-    bool isLarge;
     juce::Slider slider { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
     juce::Label name, value;
     juce::StringArray ticks;
@@ -28,23 +26,23 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 };
 
-// Push button with a lit LED bar across the top
+// Chunky push button with a lamp window
 class LedButton : public juce::Button
 {
 public:
-    LedButton(const juce::String& text, juce::Colour ledColour) : juce::Button(text), led(ledColour) {}
+    LedButton(const juce::String& text, juce::Colour lampColour) : juce::Button(text), lamp(lampColour) {}
     void paintButton(juce::Graphics& g, bool over, bool down) override;
 
 private:
-    juce::Colour led;
+    juce::Colour lamp;
 };
 
-// Vertical LED ladder, 0 dB at the top
-class GrMeter : public juce::Component, private juce::Timer
+// Analog moving-coil style gain-reduction meter
+class NeedleMeter : public juce::Component, private juce::Timer
 {
 public:
-    explicit GrMeter(VcaBusCompAudioProcessor& p) : proc(p) { startTimerHz(30); }
-    ~GrMeter() override { stopTimer(); }
+    explicit NeedleMeter(VcaBusCompAudioProcessor& p) : proc(p) { startTimerHz(30); }
+    ~NeedleMeter() override { stopTimer(); }
     void paint(juce::Graphics& g) override;
 
 private:
@@ -62,16 +60,16 @@ public:
     void resized() override;
 
 private:
-    juce::Rectangle<int> cell(int col, int row) const { return { 20 + col * 120, 168 + row * 126, 120, 126 }; }
+    juce::Rectangle<int> cell(int col, int row) const { return { 20 + col * 108, 250 + row * 128, 108, 128 }; }
 
     VcaBusCompAudioProcessor& proc;
-    StripLookAndFeel laf;
-    GrMeter meter;
+    HardwareLookAndFeel laf;
+    NeedleMeter meter;
     std::vector<std::unique_ptr<Knob>> knobs;
 
-    LedButton inButton { "IN", juce::Colour(0xffef4444) };
-    LedButton gButton { "G", juce::Colour(0xfff5c518) };
-    LedButton eButton { "E", juce::Colour(0xfff5c518) };
+    LedButton inButton { "IN", juce::Colour(0xffff4d3d) };
+    LedButton gButton { "G", juce::Colour(0xffffb02e) };
+    LedButton eButton { "E", juce::Colour(0xffffb02e) };
 
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> inAtt;
     std::unique_ptr<juce::ParameterAttachment> modeAtt;

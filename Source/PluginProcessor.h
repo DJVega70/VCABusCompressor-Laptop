@@ -41,5 +41,6 @@ public:
 
 private:
     vcacomp::BusCompressor comp;
+    float lastTrimGain = 1.0f;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VcaBusCompAudioProcessor)
 };

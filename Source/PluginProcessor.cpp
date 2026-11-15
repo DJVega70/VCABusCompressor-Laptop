@@ -38,6 +38,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout VcaBusCompAudioProcessor::cr
     l.add(std::make_unique<C>(juce::ParameterID{ "attack", 1 },  "Attack",  juce::StringArray { "0.1 ms", "0.3 ms", "1 ms", "3 ms", "10 ms", "30 ms" }, 3));
     l.add(std::make_unique<C>(juce::ParameterID{ "release", 1 }, "Release", juce::StringArray { "0.1 s", "0.2 s", "0.4 s", "0.8 s", "1.2 s", "Auto" }, 2));
     l.add(std::make_unique<F>(juce::ParameterID{ "makeup", 1 },  "Make-up",  R(-5.0f, 15.0f, 0.1f), 0.0f));
+    l.add(std::make_unique<F>(juce::ParameterID{ "trim", 1 },    "Trim",     R(-18.0f, 18.0f, 0.1f), 0.0f));
     l.add(std::make_unique<F>(juce::ParameterID{ "mix", 1 },     "Mix",      R(0.0f, 100.0f, 1.0f), 100.0f));
     l.add(std::make_unique<C>(juce::ParameterID{ "mode", 1 },    "Voicing",  juce::StringArray { "G-Series (soft knee)", "E-Series (hard knee)" }, 0));
     l.add(std::make_unique<C>(juce::ParameterID{ "schpf", 1 },   "SC High-Pass", juce::StringArray { "Off", "60 Hz", "90 Hz", "150 Hz" }, 1));
@@ -61,6 +62,7 @@ bool VcaBusCompAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts
 void VcaBusCompAudioProcessor::prepareToPlay(double sampleRate, int)
 {
     comp.prepare(sampleRate);
+    lastTrimGain = juce::Decibels::decibelsToGain(apvts.getRawParameterValue("trim")->load());
     grMeterDb = 0.0f;
 }
 
@@ -87,6 +89,11 @@ void VcaBusCompAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
 
     comp.setParams(p);
     comp.process(buffer.getWritePointer(0), buffer.getWritePointer(1), buffer.getNumSamples());
+    // Output trim (after the compressor), ramped across the block to avoid zipper noise
+    const float tg = juce::Decibels::decibelsToGain(apvts.getRawParameterValue("trim")->load());
+    buffer.applyGainRamp(0, buffer.getNumSamples(), lastTrimGain, tg);
+    lastTrimGain = tg;
+
     grMeterDb = comp.getBlockMaxGainReductionDb();
 }
 
