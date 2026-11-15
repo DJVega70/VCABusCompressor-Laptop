@@ -2,24 +2,25 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-class KnobLookAndFeel : public juce::LookAndFeel_V4
+// Console-strip styling: colored plastic caps over a dark skirt, white silkscreen ticks
+class StripLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
     void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos,
                           float startAngle, float endAngle, juce::Slider& s) override;
 };
 
-// Rotary knob with tick labels around it (stepped or continuous), name and value readout
 class Knob : public juce::Component
 {
 public:
     Knob(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramId, const juce::String& title,
-         juce::StringArray tickLabels, bool stepped, juce::Colour accent,
-         std::function<juce::String(double)> formatter, KnobLookAndFeel& laf);
+         juce::StringArray tickLabels, juce::Colour cap, bool large,
+         std::function<juce::String(double)> formatter, StripLookAndFeel& laf);
     void paint(juce::Graphics& g) override;
     void resized() override;
 
 private:
+    bool isLarge;
     juce::Slider slider { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
     juce::Label name, value;
     juce::StringArray ticks;
@@ -27,7 +28,18 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 };
 
-// LED-style gain reduction meter (0, 2, 4, 6, 8, 10, 14, 20 dB)
+// Push button with a lit LED bar across the top
+class LedButton : public juce::Button
+{
+public:
+    LedButton(const juce::String& text, juce::Colour ledColour) : juce::Button(text), led(ledColour) {}
+    void paintButton(juce::Graphics& g, bool over, bool down) override;
+
+private:
+    juce::Colour led;
+};
+
+// Vertical LED ladder, 0 dB at the top
 class GrMeter : public juce::Component, private juce::Timer
 {
 public:
@@ -50,14 +62,19 @@ public:
     void resized() override;
 
 private:
+    juce::Rectangle<int> cell(int col, int row) const { return { 20 + col * 120, 168 + row * 126, 120, 126 }; }
+
     VcaBusCompAudioProcessor& proc;
-    KnobLookAndFeel laf;
+    StripLookAndFeel laf;
     GrMeter meter;
     std::vector<std::unique_ptr<Knob>> knobs;
 
-    juce::ComboBox modeBox, hpfBox;
-    juce::Label modeLabel, hpfLabel;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAtt, hpfAtt;
+    LedButton inButton { "IN", juce::Colour(0xffef4444) };
+    LedButton gButton { "G", juce::Colour(0xfff5c518) };
+    LedButton eButton { "E", juce::Colour(0xfff5c518) };
+
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> inAtt;
+    std::unique_ptr<juce::ParameterAttachment> modeAtt;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VcaBusCompAudioProcessorEditor)
 };

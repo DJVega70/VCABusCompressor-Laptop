@@ -32,6 +32,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout VcaBusCompAudioProcessor::cr
     using R = juce::NormalisableRange<float>;
     juce::AudioProcessorValueTreeState::ParameterLayout l;
 
+    l.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{ "in", 1 }, "In", true));
     l.add(std::make_unique<F>(juce::ParameterID{ "threshold", 1 }, "Threshold", R(-30.0f, 0.0f, 0.1f), -12.0f));
     l.add(std::make_unique<C>(juce::ParameterID{ "ratio", 1 },   "Ratio",   juce::StringArray { "2:1", "4:1", "10:1" }, 1));
     l.add(std::make_unique<C>(juce::ParameterID{ "attack", 1 },  "Attack",  juce::StringArray { "0.1 ms", "0.3 ms", "1 ms", "3 ms", "10 ms", "30 ms" }, 3));
@@ -79,7 +80,8 @@ void VcaBusCompAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     p.autoRelease = (rel == 5);
     p.releaseMs   = p.autoRelease ? 400.0f : kReleases[rel];
     p.makeupDb    = apvts.getRawParameterValue("makeup")->load();
-    p.mix         = apvts.getRawParameterValue("mix")->load() / 100.0f;
+    const bool compIn = apvts.getRawParameterValue("in")->load() > 0.5f;
+    p.mix         = compIn ? apvts.getRawParameterValue("mix")->load() / 100.0f : 0.0f;
     p.scHpfHz     = kHpf[juce::jmin(idx("schpf"), 3)];
     p.kneeDb      = idx("mode") == 0 ? 6.0f : 2.0f;   // G: softer knee, E: harder knee
 
