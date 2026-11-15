@@ -2,77 +2,63 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 
-// Hardware-style knob: brass ring, knurled graphite cap, cream pointer
-class HardwareLookAndFeel : public juce::LookAndFeel_V4
+// Original console-style look: charcoal panel, coloured knob caps, lit push buttons, LED ladders.
+class ConsoleLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos,
-                          float startAngle, float endAngle, juce::Slider& s) override;
+    void drawRotarySlider(juce::Graphics&, int x, int y, int w, int h, float pos,
+                          float startAngle, float endAngle, juce::Slider&) override;
+    void drawLinearSlider(juce::Graphics&, int x, int y, int w, int h, float sliderPos,
+                          float minPos, float maxPos, juce::Slider::SliderStyle, juce::Slider&) override;
 };
 
-class Knob : public juce::Component
+class StripKnob : public juce::Component
 {
 public:
-    Knob(juce::AudioProcessorValueTreeState& apvts, const juce::String& paramId, const juce::String& title,
-         juce::StringArray tickLabels, std::function<juce::String(double)> formatter, HardwareLookAndFeel& laf);
-    void paint(juce::Graphics& g) override;
-    void resized() override;
-
-private:
-    juce::Slider slider { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
-    juce::Label name, value;
-    juce::StringArray ticks;
-    std::function<juce::String(double)> fmt;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
-};
-
-// Chunky push button with a lamp window
-class LedButton : public juce::Button
-{
-public:
-    LedButton(const juce::String& text, juce::Colour lampColour) : juce::Button(text), lamp(lampColour) {}
-    void paintButton(juce::Graphics& g, bool over, bool down) override;
-
-private:
-    juce::Colour lamp;
-};
-
-// Analog moving-coil style gain-reduction meter
-class NeedleMeter : public juce::Component, private juce::Timer
-{
-public:
-    explicit NeedleMeter(VcaBusCompAudioProcessor& p) : proc(p) { startTimerHz(30); }
-    ~NeedleMeter() override { stopTimer(); }
-    void paint(juce::Graphics& g) override;
-
-private:
-    void timerCallback() override;
-    VcaBusCompAudioProcessor& proc;
-    float shown = 0.0f;
-};
-
-class VcaBusCompAudioProcessorEditor : public juce::AudioProcessorEditor
-{
-public:
-    explicit VcaBusCompAudioProcessorEditor(VcaBusCompAudioProcessor&);
-    ~VcaBusCompAudioProcessorEditor() override;
+    StripKnob(juce::AudioProcessorValueTreeState&, const juce::String& id, const juce::String& title,
+              juce::Colour cap, std::function<juce::String(double)> fmt, ConsoleLookAndFeel&);
     void paint(juce::Graphics&) override;
     void resized() override;
-
 private:
-    juce::Rectangle<int> cell(int col, int row) const { return { 20 + col * 108, 250 + row * 128, 108, 128 }; }
+    juce::Slider slider { juce::Slider::RotaryVerticalDrag, juce::Slider::NoTextBox };
+    juce::String title;
+    juce::Label value;
+    std::function<juce::String(double)> fmt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> att;
+};
 
-    VcaBusCompAudioProcessor& proc;
-    HardwareLookAndFeel laf;
-    NeedleMeter meter;
-    std::vector<std::unique_ptr<Knob>> knobs;
+class LampButton : public juce::Button
+{
+public:
+    LampButton(const juce::String& text, juce::Colour lamp) : juce::Button(text), lampColour(lamp) {}
+    void paintButton(juce::Graphics&, bool over, bool down) override;
+private:
+    juce::Colour lampColour;
+};
 
-    LedButton inButton { "IN", juce::Colour(0xffff4d3d) };
-    LedButton gButton { "G", juce::Colour(0xffffb02e) };
-    LedButton eButton { "E", juce::Colour(0xffffb02e) };
+class Ladder : public juce::Component
+{
+public:
+    enum Kind { Peak, Reduction };
+    Ladder(Kind k, juce::String label) : kind(k), text(std::move(label)) {}
+    void setValue(float v) { shown = v; repaint(); }
+    void paint(juce::Graphics&) override;
+private:
+    Kind kind; juce::String text; float shown = 0.0f;   // dB (peak) or dB of reduction
+};
 
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> inAtt;
-    std::unique_ptr<juce::ParameterAttachment> modeAtt;
+class ConsoleStripEditor : public juce::AudioProcessorEditor
+{
+public:
+    explicit ConsoleStripEditor(ConsoleStripProcessor&);
+    ~ConsoleStripEditor() override;
+    void resized() override;
+    void paint(juce::Graphics& g) override { g.fillAll(juce::Colours::black); }
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VcaBusCompAudioProcessorEditor)
+    static constexpr int kBaseW = 460, kBaseH = 996;
+private:
+    class Content;
+    std::unique_ptr<Content> content;
+    juce::ComponentBoundsConstrainer constrainer;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ConsoleStripEditor)
 };

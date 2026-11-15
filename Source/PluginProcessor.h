@@ -1,12 +1,12 @@
 #pragma once
 #include <JuceHeader.h>
-#include "BusCompressor.h"
+#include "ChannelStrip.h"
 
-class VcaBusCompAudioProcessor : public juce::AudioProcessor
+class ConsoleStripProcessor : public juce::AudioProcessor
 {
 public:
-    VcaBusCompAudioProcessor();
-    ~VcaBusCompAudioProcessor() override = default;
+    ConsoleStripProcessor();
+    ~ConsoleStripProcessor() override = default;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override {}
@@ -16,7 +16,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "VCA Bus Compressor"; }
+    const juce::String getName() const override { return "Console Channel Strip"; }
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 0.0; }
@@ -31,16 +31,16 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
+    strip::Params readParams() const;
     juce::AudioProcessorValueTreeState apvts;
 
-    std::atomic<float> grMeterDb { 0.0f };   // positive dB of gain reduction, for the editor
-
-    static const juce::StringArray& ratioLabels();
-    static const juce::StringArray& attackLabels();
-    static const juce::StringArray& releaseLabels();
+    // meters for the editor (linear peak, positive dB of reduction)
+    std::atomic<float> inPeak { 0.0f }, outPeak { 0.0f }, compGr { 0.0f }, gateGr { 0.0f };
 
 private:
-    vcacomp::BusCompressor comp;
-    float lastTrimGain = 1.0f;
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VcaBusCompAudioProcessor)
+    float p(const char* id) const { return apvts.getRawParameterValue(id)->load(); }
+    bool b(const char* id) const { return p(id) > 0.5f; }
+
+    strip::ChannelStrip dsp;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ConsoleStripProcessor)
 };
